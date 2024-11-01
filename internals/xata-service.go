@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"go-github/views"
 	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/xataio/xata-go/xata"
@@ -22,14 +26,14 @@ func toXataValue(value interface{}) *xata.DataInputRecordValue {
 		return xata.ValueFromString(v)
 	case int:
 		return xata.ValueFromInteger(v)
-	// Add cases for other types if needed
+	case []string:
+		return xata.ValueFromStringList(v) // Handling string slice
 	default:
 		return nil
 	}
 }
 
 func createNewEntry(inputGitHubUser *views.GitHubUser) (id string, err error) {
-
 	ctx := context.Background()
 
 	recordsCli, err := xata.NewRecordsClient(
@@ -42,6 +46,7 @@ func createNewEntry(inputGitHubUser *views.GitHubUser) (id string, err error) {
 	}
 
 	insertRecordRequest := generateInsertRecordRequest(databaseName, tableName, inputGitHubUser)
+	insertRecordRequest.Body["CommitHistory"] = toXataValue(inputGitHubUser.CommitHistory) // Add CommitHistory to request
 
 	record, err := recordsCli.InsertWithID(ctx, insertRecordRequest)
 
@@ -50,9 +55,9 @@ func createNewEntry(inputGitHubUser *views.GitHubUser) (id string, err error) {
 	}
 
 	return record.Id, nil
-
 }
 
+// FetchProfileFromXata retrieves a GitHub user's profile from Xata
 func FetchProfileFromXata(id string) (*views.GitHubUser, error) {
 	ctx := context.Background()
 
@@ -95,15 +100,57 @@ func FetchProfileFromXata(id string) (*views.GitHubUser, error) {
 		// Get the data from recordRetrieved.Data map based on the field name
 		if val, ok := recordRetrieved.Data[field.Name]; ok {
 			// Type-assert and set the field value dynamically
-
 			if fieldValue.CanSet() {
 				switch v := val.(type) {
 				case string:
 					fieldValue.SetString(v)
 				case int:
+					fieldValue.SetInt(int64(v))
 				case float64:
 					fieldValue.SetInt(int64(v))
-					// Add cases for other types if needed, e.g., bool, float, etc.
+				case []interface{}:
+					if field.Name == "CommitHistory" {
+						// Convert []string to map[string]int
+						commitHistory := make(map[string]int)
+						for _, entry := range v {
+							// Split the entry into date and count
+							parts := strings.SplitN(entry.(string), ": ", 2)
+							if len(parts) == 2 {
+								date := strings.TrimSpace(parts[0])
+								countStr := strings.TrimSpace(parts[1])
+								count, countErr := strconv.Atoi(countStr) // Convert string to int
+								if countErr == nil {
+									commitHistory[date] = count
+								}
+							}
+						}
+
+						// Now sort the commitHistory by date
+						type commitEntry struct {
+							Date  time.Time
+							Count int
+						}
+						var sortedCommits []commitEntry
+						for date, count := range commitHistory {
+							parsedDate, err := time.Parse("2006-01-02", date) // Parse the date string to time.Time
+							if err == nil {
+								sortedCommits = append(sortedCommits, commitEntry{Date: parsedDate, Count: count})
+							}
+						}
+
+						// Sort the entries by date
+						sort.Slice(sortedCommits, func(i, j int) bool {
+							return sortedCommits[i].Date.Before(sortedCommits[j].Date) // Sort by time.Time
+						})
+
+						// Convert sortedCommits to a string slice
+						sortedCommitHistory := make([]string, len(sortedCommits))
+						for i, entry := range sortedCommits {
+							sortedCommitHistory[i] = fmt.Sprintf("%s: %d", entry.Date.Format("2006-01-02"), entry.Count)
+						}
+						// Set the sorted commit history back to the user struct
+						fieldValue.Set(reflect.ValueOf(sortedCommitHistory))
+					}
 				}
 			}
 		}
@@ -128,10 +175,6 @@ func FetchAllUsers() ([]*views.GitHubUser, error) {
 		Payload: xata.QueryTableRequestPayload{
 			Columns:     []string{"Login"},
 			Consistency: xata.ConsistencyStrong,
-			Sort:        xata.NewSortExpressionFromStringList([]string{"Login"}),
-			Filter: &xata.FilterExpression{
-				Exists: xata.String("Login"),
-			},
 		},
 	})
 

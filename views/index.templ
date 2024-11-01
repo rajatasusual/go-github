@@ -2,6 +2,7 @@ package views
 
 import "go-github/views/components"
 import "fmt"
+import "strings"
 
 // GitHubUser represents a GitHub user with extended details
 type GitHubUser struct {
@@ -17,6 +18,7 @@ type GitHubUser struct {
 	Followers       int
 	Following       int
 	CreatedAt       string
+	CommitHistory   []string // Map to store commit counts
 }
 
 templ Index(user *GitHubUser) {
@@ -65,6 +67,30 @@ templ Index(user *GitHubUser) {
 						<p><strong>Followers:</strong> { fmt.Sprintf("%d", user.Followers) }</p>
 						<p><strong>Following:</strong> { fmt.Sprintf("%d", user.Following) }</p>
 						<p><strong>Joined:</strong> {user.CreatedAt}</p>
+					</div>
+
+					<!-- Commit History Section -->
+					<div class="mt-8 w-full flex flex-col items-center">
+						<h2 class="text-xl font-bold">Commit History (Last Year)</h2>
+						<div class="mt-4 w-full overflow-x-auto">
+							<table class="min-w-full border-collapse border border-gray-300">
+								<thead>
+									<tr>
+										<th class="border border-gray-300 p-2">Date</th>
+										<th class="border border-gray-300 p-2">Commits</th>
+									</tr>
+								</thead>
+								<tbody>
+									<!-- Iterate over commit history -->
+									for _, commit := range user.CommitHistory {
+										<tr>
+											<td class="border border-gray-300 p-2">{strings.SplitN(commit, ": ", 2)[0]}</td>
+											<td class="border border-gray-300 p-2">{strings.SplitN(commit, ": ", 2)[1]}</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
 					</div>
 				</div>
 			</main>
