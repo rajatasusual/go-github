@@ -33,15 +33,16 @@ func getUserHandler(ctx *gin.Context) {
 	if err != nil {
 		fmt.Println(err)
 		user, _ = fetchGitHubProfile(username, GetEnvVariable("GITHUB_TOKEN"))
+		if user == nil {
+			user = &views.GitHubUser{
+				Name: "User not found",
+			}
+			render(ctx, http.StatusOK, views.Index(user))
+			return
+		}
 		_, err := createNewEntry(user)
 		if err != nil {
 			fmt.Println(err)
-		}
-	}
-
-	if user == nil {
-		user = &views.GitHubUser{
-			Name: "User not found",
 		}
 	}
 
