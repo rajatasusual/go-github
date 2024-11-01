@@ -1,12 +1,22 @@
 package views
 
 import "go-github/views/components"
-// GitHubUser represents a GitHub user
+import "fmt"
+
+// GitHubUser represents a GitHub user with extended details
 type GitHubUser struct {
-	Login     string
-	Name      string
-	AvatarURL string
-	Bio       string
+	Login           string
+	Name            string
+	AvatarURL       string
+	Bio             string
+	Company         string
+	Blog            string
+	Location        string
+	Email           string
+	PublicRepos     int
+	Followers       int
+	Following       int
+	CreatedAt       string
 }
 
 templ Index(user *GitHubUser) {
@@ -21,51 +31,44 @@ templ Index(user *GitHubUser) {
 					</h3>
 				</nav>
 				<div class="mt-6 w-full flex justify-center items-center flex-col">
-					// FORM PROCESSING
-					<form
-						method="get"
-						onsubmit="submit()"
-						class="w-96"
-					>
+					<!-- Search Form -->
+					<form method="get" class="w-96">
 						<input
 							type="text"
 							name="username"
-							cols="30"
-							rows="2"
 							class="w-full border rounded-lg mb-2 p-4"
 							placeholder="Input username"
 							id="username"
-
 							value={user.Login}
-
 							autocomplete="off"
-							autofocus
 							required
 						/>
-						<button
-							class="py-1 px-4 w-full h-10 rounded-lg text-white bg-zinc-800"
-						>
+						<button class="py-1 px-4 w-full h-10 rounded-lg text-white bg-zinc-800">
 							Search
 						</button>
 					</form>
 					<br>
-					<!-- RESULT PROCESSING -->
+
+					<!-- Profile Information -->
 					<div class="w-full flex justify-center items-center flex-col">
-						<img
-							class="w-24 h-24 rounded-full"
-							src={user.AvatarURL}
-						/>
+						<img class="w-24 h-24 rounded-full" src={user.AvatarURL} />
 						<h1 class="text-3xl font-bold">{user.Name}</h1>
 						<p>{user.Bio}</p>
+
+						<!-- Additional Information -->
+						<p><strong>Username:</strong> {user.Login}</p>
+						<p><strong>Company:</strong> {user.Company}</p>
+						<p><strong>Blog:</strong> <a href={templ.URL(user.Blog)}>{user.Blog}</a></p>
+						<p><strong>Location:</strong> {user.Location}</p>
+						<p><strong>Email:</strong> {user.Email}</p>
+						<p><strong>Public Repos:</strong> { fmt.Sprintf("%d", user.PublicRepos) }</p>
+						<p><strong>Followers:</strong> { fmt.Sprintf("%d", user.Followers) }</p>
+						<p><strong>Following:</strong> { fmt.Sprintf("%d", user.Following) }</p>
+						<p><strong>Joined:</strong> {user.CreatedAt}</p>
 					</div>
 				</div>
 			</main>
 		</body>
 		@components.Footer()
 	</html>
-	<script>
-		function submit() {
-			{ fmt.Println("Form submitted!") }
-		}
-    </script>
 }

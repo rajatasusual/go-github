@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-github/views"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/a-h/templ"
@@ -21,6 +22,7 @@ func render(ctx *gin.Context, status int, template templ.Component) error {
 func getUserHandler(ctx *gin.Context) {
 	_, cancel := context.WithTimeout(context.Background(), appTimeout)
 	username := ctx.Query("username")
+	username = strings.TrimSpace(username)
 
 	if username == "" {
 		username = "rajatasusual"

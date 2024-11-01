@@ -13,7 +13,6 @@ import (
 func fetchGitHubProfile(username, token string) (*views.GitHubUser, error) {
 	ctx := context.Background()
 
-	// Set up GitHub client with authentication if a token is provided
 	var client *github.Client
 	if token != "" {
 		ts := oauth2.StaticTokenSource(
@@ -25,7 +24,6 @@ func fetchGitHubProfile(username, token string) (*views.GitHubUser, error) {
 		client = github.NewClient(nil)
 	}
 
-	// Fetch the user details
 	user, _, err := client.Users.Get(ctx, username)
 	if err != nil {
 		if rateLimitErr, ok := err.(*github.RateLimitError); ok {
@@ -34,11 +32,18 @@ func fetchGitHubProfile(username, token string) (*views.GitHubUser, error) {
 		return nil, err
 	}
 
-	// Map the GitHub API response to our GitHubUser struct
 	return &views.GitHubUser{
-		Login:     user.GetLogin(),
-		Name:      user.GetName(),
-		AvatarURL: user.GetAvatarURL(),
-		Bio:       user.GetBio(),
+		Login:       user.GetLogin(),
+		Name:        user.GetName(),
+		AvatarURL:   user.GetAvatarURL(),
+		Bio:         user.GetBio(),
+		Company:     user.GetCompany(),
+		Blog:        user.GetBlog(),
+		Location:    user.GetLocation(),
+		Email:       user.GetEmail(),
+		PublicRepos: user.GetPublicRepos(),
+		Followers:   user.GetFollowers(),
+		Following:   user.GetFollowing(),
+		CreatedAt:   user.GetCreatedAt().Format("2006-01-02"),
 	}, nil
 }
