@@ -1,9 +1,11 @@
-package internals
+package cmd
 
 import (
 	"context"
 	"fmt"
+	"go-github/service"
 	"go-github/views"
+
 	"net/http"
 	"strings"
 	"time"
@@ -30,11 +32,11 @@ func getUserHandler(ctx *gin.Context) {
 
 	defer cancel()
 
-	user, err := FetchProfileFromXata(username)
+	user, err := service.FetchEntryFromXata(username)
 
 	if err != nil {
 		fmt.Println(err)
-		user, _ = fetchGitHubProfile(username, GetEnvVariable("GITHUB_TOKEN"))
+		user, _ = service.FetchGitHubProfile(username)
 		if user == nil {
 			user = &views.GitHubUser{
 				Name: "User not found",
@@ -42,7 +44,7 @@ func getUserHandler(ctx *gin.Context) {
 			render(ctx, http.StatusOK, views.Index(user))
 			return
 		}
-		_, err := createNewEntry(user)
+		_, err := service.CreateNewEntry(user)
 		if err != nil {
 			fmt.Println(err)
 		}
