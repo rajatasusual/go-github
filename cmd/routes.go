@@ -20,6 +20,11 @@ func (app *Config) Routes() {
 		})
 	})
 
+	app.Router.GET("/favicon.ico", func(ctx *gin.Context) {
+		//return icon file
+		ctx.FileFromFS("favicon.ico", http.Dir("."))
+	})
+
 	app.Router.POST("/token", postTokenHandler)
 
 	app.Router.NoRoute(func(ctx *gin.Context) {
