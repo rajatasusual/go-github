@@ -20,6 +20,8 @@ func (app *Config) Routes() {
 		})
 	})
 
+	app.Router.POST("/token", postTokenHandler)
+
 	app.Router.NoRoute(func(ctx *gin.Context) {
 		ctx.Status(http.StatusNotFound)
 	})

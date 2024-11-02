@@ -8,51 +8,57 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var githubAPIKey = GetEnvVariable("GITHUB_TOKEN")
-
 type GithubClientSingleton struct {
 	GithubClient *github.Client
-	apiKey       string
 }
 
 var githubInstance *GithubClientSingleton
 
-func GetGithubClientInstance() *GithubClientSingleton {
+func GetGithubClientInstance(force bool) *GithubClientSingleton {
+
+	if force {
+		lock.Lock()
+		createGithubClient()
+		defer lock.Unlock()
+	}
+
 	if githubInstance == nil {
 		lock.Lock()
-		defer lock.Unlock()
-		if githubInstance == nil {
-			fmt.Println("Creating single instance now.")
-			githubInstance = &GithubClientSingleton{
-				apiKey: xataAPIKey,
+		if githubInstance == nil || githubInstance.GithubClient == nil {
+			err := createGithubClient()
+			if err != nil {
+				fmt.Println(err)
 			}
-
-			githubInstance.GithubClient, _ = createGithubClient()
-
 		}
+		defer lock.Unlock()
 	}
 
 	return githubInstance
 }
 
-func createGithubClient() (*github.Client, error) {
-	ctx := context.Background()
+func createGithubClient() error {
+	fmt.Println("Creating github instance now.")
+	githubInstance = &GithubClientSingleton{}
 
+	ctx := context.Background()
+	githubAPIKey := GetEnvVariable("GITHUB_TOKEN")
 	if githubAPIKey != "" {
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubAPIKey})
 		tc := oauth2.NewClient(ctx, ts)
-		return github.NewClient(tc), nil
+		githubInstance.GithubClient = github.NewClient(tc)
 	} else {
-		return github.NewClient(nil), nil
+		githubInstance.GithubClient = github.NewClient(nil)
 	}
+
+	return nil
 }
 
-func GetGithubUser(ctx context.Context, username string) (*github.User, error) {
+func GetGithubUser(ctx context.Context, username string, force bool) (*github.User, error) {
 	// Fetch user profile
-	user, _, err := GetGithubClientInstance().GithubClient.Users.Get(ctx, username)
+	user, _, err := GetGithubClientInstance(force).GithubClient.Users.Get(ctx, username)
 	if err != nil {
 		if rateLimitErr, ok := err.(*github.RateLimitError); ok {
-			return nil, fmt.Errorf("GitHub API rate limit exceeded: %v", rateLimitErr.Message)
+			return nil, fmt.Errorf("429: %v", rateLimitErr.Message)
 		}
 		return nil, err
 	}
@@ -61,19 +67,19 @@ func GetGithubUser(ctx context.Context, username string) (*github.User, error) {
 
 func GetRepos(ctx context.Context, username string) ([]*github.Repository, error) {
 	// Fetch repositories contributed to by the user
-	repos, _, err := GetGithubClientInstance().GithubClient.Repositories.List(ctx, username, &github.RepositoryListOptions{
+	repos, _, err := GetGithubClientInstance(false).GithubClient.Repositories.List(ctx, username, &github.RepositoryListOptions{
 		Sort: "updated",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch repositories: %v", err)
+		return nil, err
 	}
 	return repos, nil
 }
 
 func GetCommits(ctx context.Context, repo *github.Repository, opts *github.CommitsListOptions) ([]*github.RepositoryCommit, *github.Response, error) {
-	commits, resp, err := GetGithubClientInstance().GithubClient.Repositories.ListCommits(ctx, *repo.Owner.Login, *repo.Name, opts)
+	commits, resp, err := GetGithubClientInstance(false).GithubClient.Repositories.ListCommits(ctx, *repo.Owner.Login, *repo.Name, opts)
 	if err != nil {
-		return nil, resp, fmt.Errorf("failed to fetch commits: %v", err)
+		return nil, resp, err
 	}
 	return commits, resp, nil
 }

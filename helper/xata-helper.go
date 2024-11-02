@@ -24,28 +24,28 @@ type RecordsClientSingleton struct {
 	url           string
 }
 
-var singleInstance *RecordsClientSingleton
+var recordsClientInstance *RecordsClientSingleton
 var lock = &sync.Mutex{}
 
 func GetRecordsClientInstance() *RecordsClientSingleton {
-	if singleInstance == nil {
+	if recordsClientInstance == nil {
 		lock.Lock()
 		defer lock.Unlock()
-		if singleInstance == nil {
-			fmt.Println("Creating single instance now.")
-			singleInstance = &RecordsClientSingleton{
+		if recordsClientInstance == nil {
+			fmt.Println("Creating xata instance now.")
+			recordsClientInstance = &RecordsClientSingleton{
 				apiKey:       xataAPIKey,
 				DatabaseName: databaseName,
 				TableName:    tableName,
 				url:          xataURL,
 			}
 
-			singleInstance.RecordsClient, _ = createRecordsClient()
+			recordsClientInstance.RecordsClient, _ = createRecordsClient()
 
 		}
 	}
 
-	return singleInstance
+	return recordsClientInstance
 }
 
 func createRecordsClient() (xata.RecordsClient, error) {
@@ -64,7 +64,16 @@ func GetRecordFromXata(ctx context.Context, id string) (*xata.Record, error) {
 		},
 		RecordID: id,
 	}
-	return GetRecordsClientInstance().RecordsClient.Get(ctx, getRecordRequest)
+
+	recordClient := GetRecordsClientInstance().RecordsClient
+	if recordClient == nil {
+		return nil, fmt.Errorf("RecordsClient instance is nil")
+	}
+	record, err := recordClient.Get(ctx, getRecordRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get record: %v", err)
+	}
+	return record, nil
 }
 
 func SetRecordInXata(ctx context.Context, record *views.GitHubUser) (xata.Record, error) {
@@ -72,7 +81,11 @@ func SetRecordInXata(ctx context.Context, record *views.GitHubUser) (xata.Record
 	insertRecordRequest := GenerateInsertRecordRequest(record)
 	insertRecordRequest.Body["CommitHistory"] = ToXataValue(record.CommitHistory) // Add CommitHistory to request
 
-	createdRecord, err := GetRecordsClientInstance().RecordsClient.InsertWithID(ctx, insertRecordRequest)
+	recordClient := GetRecordsClientInstance().RecordsClient
+	if recordClient == nil {
+		return xata.Record{}, fmt.Errorf("RecordsClient instance is nil")
+	}
+	createdRecord, err := recordClient.InsertWithID(ctx, insertRecordRequest)
 
 	if err != nil {
 		return *createdRecord, fmt.Errorf("failed to insert record: %v", err)

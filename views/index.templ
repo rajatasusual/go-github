@@ -67,25 +67,16 @@ templ Index(user *GitHubUser) {
 			</main>
 		</body>
 		<script>
-			document.getElementById('searchForm').addEventListener('submit', async function(event) {
-				event.preventDefault(); // Prevent page reload
 
-				const username = document.getElementById('username').value;
-				document.getElementById('profileContent').style.display = 'flex';
-
-				try {
-					// Show a loading state if needed
-					document.getElementById('profileInfo').innerHTML = "<p>Loading...</p>";
-					document.getElementById('commitHistory').innerHTML = "<p>Loading chart...</p>";
-
-					// Fetch user profile and commit history
-					const response = await fetch(`http://localhost:8080/?username=${encodeURIComponent(username)}`);
-					const user = await response.json();
-
+			updateUserDetails = async (user) => {
 					// Populate Profile Info
 					const profileHTML = `
 						<img class="w-24 h-24 rounded-full" src="${user.AvatarURL}" />
-						<h1 class="text-3xl font-bold mt-4">${user.Name}</h1>
+						<h1 class="text-3xl font-bold mt-4">
+							<a href="https://github.com/${user.Login}" target="_blank" rel="noopener noreferrer">
+								${user.Name}
+							</a>
+						</h1>
 						<p class="text-center mb-2"><em>${user.Bio}</em></p>
 						<div class="w-full px-4 items-center flex flex-col justify-center">
 							<p><strong>Username:</strong> ${user.Login}</p>
@@ -133,17 +124,64 @@ templ Index(user *GitHubUser) {
 								xAxes: [{
 									type: 'time',
 									time: {
-										unit: 'day'
+										unit: 'month',
+										displayFormats: {
+											month: 'MMM YYYY'
+										}
 									}
 								}]
 							}
 						}
 					});
+			}
+			
+			document.getElementById('searchForm').addEventListener('submit', async function(event) {
+				event.preventDefault(); // Prevent page reload
+
+				const username = document.getElementById('username').value;
+				document.getElementById('profileContent').style.display = 'flex';
+
+				try {
+					// Show a loading state if needed
+					document.getElementById('profileInfo').innerHTML = "<p>Loading...</p>";
+					document.getElementById('commitHistory').innerHTML = "<p>Loading chart...</p>";
+
+					// Fetch user profile and commit history
+					const response = await fetch(`http://localhost:8080/?username=${encodeURIComponent(username)}`);
+					if (!response.ok) {
+						if (response.status === 429) {
+							const tokenInput = prompt("GitHub API rate limit exceeded. Please enter your GitHub personal access token:");
+							if (tokenInput) {
+								const response = await fetch("/token", {
+									method: "POST",
+									headers: {
+										"Content-Type": "application/json"
+									},
+									body: JSON.stringify({ token: tokenInput , username})
+								});
+
+								if (response.ok) {
+									const user = await response.json();
+									updateUserDetails(user);
+								} else 
+									throw new Error(await response.text());
+							} else {
+								document.getElementById('profileInfo').innerHTML = "<p>No GitHub token provided.</p>";
+								document.getElementById('commitHistory').innerHTML = "";
+							}
+						}  else if (response.status === 404) {
+							document.getElementById('profileInfo').innerHTML = "<p>User not found.</p>";
+							document.getElementById('commitHistory').innerHTML = "";
+						}
+					} else {
+						const user = await response.json();
+						updateUserDetails(user);
+					}
 
 				} catch (error) {
 					console.error('Error fetching data:', error);
-					document.getElementById('profileInfo').innerHTML = "<p>Error loading profile information.</p>";
-					document.getElementById('commitHistory').innerHTML = "<p>Error loading commit history.</p>";
+					document.getElementById('profileInfo').innerHTML = "<p>"+error.mmessage+"</p>";
+					document.getElementById('commitHistory').innerHTML = "";
 				}
 			});
 		</script>

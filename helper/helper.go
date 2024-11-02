@@ -23,6 +23,28 @@ func GetEnvVariable(key string) string {
 	return os.Getenv(key)
 }
 
+func SetEnvVariable(key string, value string) error {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	return os.Setenv(key, value)
+}
+
+func GetStringValue(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
+func GetIntValue(i *int) int {
+	if i != nil {
+		return *i
+	}
+	return 0
+}
+
 func PopulateGitHubUser(recordRetrieved *xata.Record) (*views.GitHubUser, error) {
 	user := &views.GitHubUser{}
 	userValue := reflect.ValueOf(user).Elem()

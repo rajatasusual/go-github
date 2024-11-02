@@ -10,16 +10,39 @@ import (
 )
 
 // fetchGitHubProfile fetches a user's GitHub profile and commit history for the past year
-func FetchGitHubProfile(username string) (*views.GitHubUser, error) {
+func FetchGitHubProfile(username string, force bool) (*views.GitHubUser, error) {
+
+	githubUser := &views.GitHubUser{}
 
 	ctx := context.Background()
 
-	user, _ := helper.GetGithubUser(ctx, username)
+	user, err := helper.GetGithubUser(ctx, username, force)
+	if err != nil || user == nil {
+		return nil, err
+	}
+
+	githubUser = &views.GitHubUser{
+		Login:       helper.GetStringValue(user.Login),
+		Name:        helper.GetStringValue(user.Name),
+		AvatarURL:   helper.GetStringValue(user.AvatarURL),
+		Bio:         helper.GetStringValue(user.Bio),
+		Company:     helper.GetStringValue(user.Company),
+		Blog:        helper.GetStringValue(user.Blog),
+		Location:    helper.GetStringValue(user.Location),
+		Email:       helper.GetStringValue(user.Email),
+		PublicRepos: helper.GetIntValue(user.PublicRepos),
+		Followers:   helper.GetIntValue(user.Followers),
+		Following:   helper.GetIntValue(user.Following),
+		CreatedAt:   user.GetCreatedAt().Format("2006-01-02"),
+	}
 
 	// Initialize commit history map
 	commitHistory := make(map[string]int) // Keyed by date in "YYYY-MM-DD" format
 
-	repos, _ := helper.GetRepos(ctx, username)
+	repos, err := helper.GetRepos(ctx, username)
+	if err != nil {
+		return githubUser, err
+	}
 
 	// Calculate the date for one year ago
 	oneYearAgo := time.Now().AddDate(-1, 0, 0)
@@ -37,7 +60,10 @@ func FetchGitHubProfile(username string) (*views.GitHubUser, error) {
 
 		// Paginate through all commits in the past year
 		for {
-			commits, resp, _ := helper.GetCommits(ctx, repo, opts)
+			commits, resp, err := helper.GetCommits(ctx, repo, opts)
+			if err != nil {
+				return githubUser, err
+			}
 
 			// Aggregate commits by day
 			for _, commit := range commits {
@@ -53,21 +79,7 @@ func FetchGitHubProfile(username string) (*views.GitHubUser, error) {
 		}
 	}
 
-	sortedCommitHistory, _ := helper.SortCommitHistory(helper.ConvertMapToStringList(commitHistory))
+	githubUser.CommitHistory, _ = helper.SortCommitHistory(helper.ConvertMapToStringList(commitHistory))
 
-	return &views.GitHubUser{
-		Login:         user.GetLogin(),
-		Name:          user.GetName(),
-		AvatarURL:     user.GetAvatarURL(),
-		Bio:           user.GetBio(),
-		Company:       user.GetCompany(),
-		Blog:          user.GetBlog(),
-		Location:      user.GetLocation(),
-		Email:         user.GetEmail(),
-		PublicRepos:   user.GetPublicRepos(),
-		Followers:     user.GetFollowers(),
-		Following:     user.GetFollowing(),
-		CreatedAt:     user.GetCreatedAt().Format("2006-01-02"),
-		CommitHistory: sortedCommitHistory, // Map of commit counts by day
-	}, nil
+	return githubUser, nil
 }
