@@ -1,24 +1,26 @@
 package views
 
-import "go-github/views/components"
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"go-github/views/components"
+	"strings"
+)
 
 // GitHubUser represents a GitHub user with extended details
 type GitHubUser struct {
-	Login           string
-	Name            string
-	AvatarURL       string
-	Bio             string
-	Company         string
-	Blog            string
-	Location        string
-	Email           string
-	PublicRepos     int
-	Followers       int
-	Following       int
-	CreatedAt       string
-	CommitHistory   []string // Map to store commit counts
+	Login         string
+	Name          string
+	AvatarURL     string
+	Bio           string
+	Company       string
+	Blog          string
+	Location      string
+	Email         string
+	PublicRepos   int
+	Followers     int
+	Following     int
+	CreatedAt     string
+	CommitHistory []string // Map to store commit counts
 }
 
 templ Index(user *GitHubUser) {
@@ -27,7 +29,7 @@ templ Index(user *GitHubUser) {
 		@components.Header()
 		<body>
 			<main class="min-h-screen w-full">
-				<nav class="flex w-full border border-b-zinc-200 px-4 py-4">
+				<nav class="flex w-full border border-b-zinc-200 px-4 py-4 items-center justify-center">
 					<h3 class="text-base lg:text-lg font-medium text-center">
 						GO Github
 					</h3>
@@ -41,7 +43,7 @@ templ Index(user *GitHubUser) {
 							class="w-full border rounded-lg mb-2 p-4"
 							placeholder="Input username"
 							id="username"
-							value={user.Login}
+							value={ user.Login }
 							autocomplete="off"
 							required
 						/>
@@ -49,52 +51,89 @@ templ Index(user *GitHubUser) {
 							Search
 						</button>
 					</form>
-					<br>
+					<br />
 
-					<!-- Profile Information -->
-					<div class="w-full flex justify-center items-center flex-col">
-						<img class="w-24 h-24 rounded-full" src={user.AvatarURL} />
-						<h1 class="text-3xl font-bold">{user.Name}</h1>
-						<p>{user.Bio}</p>
+					<!-- Main Content Container -->
+					<div class="flex flex-col lg:flex-row w-full max-w-6xl mx-auto mt-6 gap-8">
+						<!-- Profile Information -->
+						<div class="w-full lg:w-1/2 flex justify-center items-center flex-col p-4 border border-gray-300 rounded-lg">
+							<img class="w-24 h-24 rounded-full" src={ user.AvatarURL } />
+							<h1 class="text-3xl font-bold mt-4">{ user.Name }</h1>
+							<p class="text-center mb-2"><em>{ user.Bio }</em></p>
+							
+							<!-- Additional Information -->
+							<div class="w-full px-4 items-center flex flex-col justify-center">
+								<p><strong>Username:</strong> { user.Login }</p>
+								<p><strong>Company:</strong> { user.Company }</p>
+								<p><strong>Blog:</strong> <a href={ templ.URL(user.Blog) }>{ user.Blog }</a></p>
+								<p><strong>Location:</strong> { user.Location }</p>
+								<p><strong>Email:</strong> { user.Email }</p>
+								<p><strong>Public Repos:</strong> { fmt.Sprintf("%d", user.PublicRepos) }</p>
+								<p><strong>Followers:</strong> { fmt.Sprintf("%d", user.Followers) }</p>
+								<p><strong>Following:</strong> { fmt.Sprintf("%d", user.Following) }</p>
+								<p><strong>Joined:</strong> { user.CreatedAt }</p>
+							</div>
+						</div>
 
-						<!-- Additional Information -->
-						<p><strong>Username:</strong> {user.Login}</p>
-						<p><strong>Company:</strong> {user.Company}</p>
-						<p><strong>Blog:</strong> <a href={templ.URL(user.Blog)}>{user.Blog}</a></p>
-						<p><strong>Location:</strong> {user.Location}</p>
-						<p><strong>Email:</strong> {user.Email}</p>
-						<p><strong>Public Repos:</strong> { fmt.Sprintf("%d", user.PublicRepos) }</p>
-						<p><strong>Followers:</strong> { fmt.Sprintf("%d", user.Followers) }</p>
-						<p><strong>Following:</strong> { fmt.Sprintf("%d", user.Following) }</p>
-						<p><strong>Joined:</strong> {user.CreatedAt}</p>
-					</div>
-
-					<!-- Commit History Section -->
-					<div class="mt-8 w-full flex flex-col items-center">
-						<h2 class="text-xl font-bold">Commit History (Last Year)</h2>
-						<div class="mt-4 w-full overflow-x-auto">
-							<table class="min-w-full border-collapse border border-gray-300">
-								<thead>
-									<tr>
-										<th class="border border-gray-300 p-2">Date</th>
-										<th class="border border-gray-300 p-2">Commits</th>
-									</tr>
-								</thead>
-								<tbody>
-									<!-- Iterate over commit history -->
-									for _, commit := range user.CommitHistory {
-										<tr>
-											<td class="border border-gray-300 p-2">{strings.SplitN(commit, ": ", 2)[0]}</td>
-											<td class="border border-gray-300 p-2">{strings.SplitN(commit, ": ", 2)[1]}</td>
-										</tr>
-									}
-								</tbody>
-							</table>
+						<!-- Commit History Scatterplot -->
+						<div class="w-full lg:w-1/2 flex flex-col items-center p-4 border border-gray-300 rounded-lg">
+							<h2 class="text-xl font-bold mb-4">Commit History Scatterplot</h2>
+							<div class="w-full">
+								<canvas id="commitHistoryChart" data-chart={ strings.Join(user.CommitHistory, ",") } class="w-full h-64"></canvas>
+							</div>
 						</div>
 					</div>
 				</div>
 			</main>
 		</body>
+		<script>
+			window.onload = function() {
+				// Retrieve commit history data from Go
+				const commitData = document.getElementById('commitHistoryChart').getAttribute('data-chart');
+				
+				const listToChartData = commitData => {
+					const lines = commitData.trim().split(',');
+					return lines.map(line => {
+						const [date, commits] = line.split(':');
+						return {
+							x: date,
+							y: commits
+						}
+					});
+				};
+				
+				console.log(listToChartData(commitData));
+				
+				// Configure Chart.js for a scatterplot
+				const ctx = document.getElementById('commitHistoryChart').getContext('2d');
+				const config = {
+					type: 'line',
+					data: {
+						labels: [],
+						datasets: [{
+						data: listToChartData(commitData),
+						label: "Commits",
+						borderColor: "#3e95cd",
+						fill: false
+						}]
+					},
+					options: {
+						scales: {
+							xAxes: [{
+								type: 'time',
+								distribution: 'linear',
+							}],
+							title: {
+								display: false,
+							}
+						}
+					}
+				};
+
+				new Chart(ctx, config);
+				
+			}
+		</script>
 		@components.Footer()
 	</html>
 }
