@@ -21,14 +21,28 @@ func render(ctx *gin.Context, status int, template templ.Component) error {
 	return template.Render(ctx.Request.Context(), ctx.Writer)
 }
 
+func handleMainPage(ctx *gin.Context) {
+	if strings.TrimSpace(ctx.Query("username")) == "" {
+		getIndexHandler(ctx)
+	} else {
+		getUserHandler(ctx)
+	}
+}
+
+func getIndexHandler(ctx *gin.Context) {
+	_, cancel := context.WithTimeout(context.Background(), appTimeout)
+
+	defer cancel()
+
+	emptyUser := &views.GitHubUser{}
+
+	render(ctx, http.StatusOK, views.Index(emptyUser))
+}
+
 func getUserHandler(ctx *gin.Context) {
 	_, cancel := context.WithTimeout(context.Background(), appTimeout)
 	username := ctx.Query("username")
 	username = strings.TrimSpace(username)
-
-	if username == "" {
-		username = "rajatasusual"
-	}
 
 	defer cancel()
 
@@ -41,7 +55,7 @@ func getUserHandler(ctx *gin.Context) {
 			user = &views.GitHubUser{
 				Name: "User not found",
 			}
-			render(ctx, http.StatusOK, views.Index(user))
+			ctx.JSON(http.StatusNotFound, user)
 			return
 		}
 		_, err := service.CreateNewEntry(user)
@@ -50,5 +64,6 @@ func getUserHandler(ctx *gin.Context) {
 		}
 	}
 
-	render(ctx, http.StatusOK, views.Index(user))
+	//serve user as JSON
+	ctx.JSON(http.StatusOK, user)
 }

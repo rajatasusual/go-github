@@ -1,9 +1,7 @@
 package views
 
 import (
-	"fmt"
 	"go-github/views/components"
-	"strings"
 )
 
 // GitHubUser represents a GitHub user with extended details
@@ -36,7 +34,7 @@ templ Index(user *GitHubUser) {
 				</nav>
 				<div class="mt-6 w-full flex justify-center items-center flex-col">
 					<!-- Search Form -->
-					<form method="get" class="w-96">
+					<form method="get" id="searchForm" class="w-96">
 						<input
 							type="text"
 							name="username"
@@ -54,85 +52,100 @@ templ Index(user *GitHubUser) {
 					<br />
 
 					<!-- Main Content Container -->
-					<div class="flex flex-col lg:flex-row w-full max-w-6xl mx-auto mt-6 gap-8">
+					<div class="flex flex-col lg:flex-row w-full max-w-6xl mx-auto mt-6 gap-8" style="display: none;" id="profileContent">
 						<!-- Profile Information -->
-						<div class="w-full lg:w-1/2 flex justify-center items-center flex-col p-4 border border-gray-300 rounded-lg">
-							<img class="w-24 h-24 rounded-full" src={ user.AvatarURL } />
-							<h1 class="text-3xl font-bold mt-4">{ user.Name }</h1>
-							<p class="text-center mb-2"><em>{ user.Bio }</em></p>
-							
-							<!-- Additional Information -->
-							<div class="w-full px-4 items-center flex flex-col justify-center">
-								<p><strong>Username:</strong> { user.Login }</p>
-								<p><strong>Company:</strong> { user.Company }</p>
-								<p><strong>Blog:</strong> <a href={ templ.URL(user.Blog) }>{ user.Blog }</a></p>
-								<p><strong>Location:</strong> { user.Location }</p>
-								<p><strong>Email:</strong> { user.Email }</p>
-								<p><strong>Public Repos:</strong> { fmt.Sprintf("%d", user.PublicRepos) }</p>
-								<p><strong>Followers:</strong> { fmt.Sprintf("%d", user.Followers) }</p>
-								<p><strong>Following:</strong> { fmt.Sprintf("%d", user.Following) }</p>
-								<p><strong>Joined:</strong> { user.CreatedAt }</p>
-							</div>
+						<div id="profileInfo" class="w-full lg:w-1/2 flex justify-center items-center flex-col p-4 border border-gray-300 rounded-lg">
+							<!-- Dynamic user info will be inserted here -->
 						</div>
 
 						<!-- Commit History Scatterplot -->
-						<div class="w-full lg:w-1/2 flex flex-col items-center p-4 border border-gray-300 rounded-lg">
-							<h2 class="text-xl font-bold mb-4">Commit History Scatterplot</h2>
-							<div class="w-full">
-								<canvas id="commitHistoryChart" data-chart={ strings.Join(user.CommitHistory, ",") } class="w-full h-64"></canvas>
-							</div>
+						<div id="commitHistory" class="w-full lg:w-1/2 flex flex-col items-center p-4 border border-gray-300 rounded-lg">
+							<!-- Dynamic commit history chart will be inserted here -->
 						</div>
 					</div>
 				</div>
 			</main>
 		</body>
 		<script>
-			window.onload = function() {
-				// Retrieve commit history data from Go
-				const commitData = document.getElementById('commitHistoryChart').getAttribute('data-chart');
-				
-				const listToChartData = commitData => {
-					const lines = commitData.trim().split(',');
-					return lines.map(line => {
-						const [date, commits] = line.split(':');
-						return {
-							x: date,
-							y: commits
-						}
-					});
-				};
-				
-				console.log(listToChartData(commitData));
-				
-				// Configure Chart.js for a scatterplot
-				const ctx = document.getElementById('commitHistoryChart').getContext('2d');
-				const config = {
-					type: 'line',
-					data: {
-						labels: [],
-						datasets: [{
-						data: listToChartData(commitData),
-						label: "Commits",
-						borderColor: "#3e95cd",
-						fill: false
-						}]
-					},
-					options: {
-						scales: {
-							xAxes: [{
-								type: 'time',
-								distribution: 'linear',
-							}],
-							title: {
-								display: false,
+			document.getElementById('searchForm').addEventListener('submit', async function(event) {
+				event.preventDefault(); // Prevent page reload
+
+				const username = document.getElementById('username').value;
+				document.getElementById('profileContent').style.display = 'flex';
+
+				try {
+					// Show a loading state if needed
+					document.getElementById('profileInfo').innerHTML = "<p>Loading...</p>";
+					document.getElementById('commitHistory').innerHTML = "<p>Loading chart...</p>";
+
+					// Fetch user profile and commit history
+					const response = await fetch(`http://localhost:8080/?username=${encodeURIComponent(username)}`);
+					const user = await response.json();
+
+					// Populate Profile Info
+					const profileHTML = `
+						<img class="w-24 h-24 rounded-full" src="${user.AvatarURL}" />
+						<h1 class="text-3xl font-bold mt-4">${user.Name}</h1>
+						<p class="text-center mb-2"><em>${user.Bio}</em></p>
+						<div class="w-full px-4 items-center flex flex-col justify-center">
+							<p><strong>Username:</strong> ${user.Login}</p>
+							<p><strong>Company:</strong> ${user.Company}</p>
+							<p><strong>Blog:</strong> <a href="${user.Blog}" target="_blank">${user.Blog}</a></p>
+							<p><strong>Location:</strong> ${user.Location}</p>
+							<p><strong>Email:</strong> ${user.Email}</p>
+							<p><strong>Public Repos:</strong> ${user.PublicRepos}</p>
+							<p><strong>Followers:</strong> ${user.Followers}</p>
+							<p><strong>Following:</strong> ${user.Following}</p>
+							<p><strong>Joined:</strong> ${user.CreatedAt}</p>
+						</div>
+					`;
+					document.getElementById('profileInfo').innerHTML = profileHTML;
+
+					// Inject the canvas for the commit history chart
+					document.getElementById('commitHistory').innerHTML = `
+						<h2 class="text-xl font-bold mb-4">Commit History Scatterplot</h2>
+						<canvas id="commitHistoryChart" class="w-full h-64"></canvas>
+					`;
+
+					const listToChartData = commitData => {
+						return commitData.map(datapoint => {
+							const [date, commits] = datapoint.split(':');
+							return {
+								x: date,
+								y: commits
+							}
+						});
+					};
+					const ctx = document.getElementById('commitHistoryChart').getContext('2d');
+					new Chart(ctx, {
+						type: 'line',
+						data: {
+							datasets: [{
+								label: "Commits",
+								data: listToChartData(user.CommitHistory || []),
+								backgroundColor: "#3e95cd",
+								borderColor: "#3e95cd",
+								fill: false
+							}]
+						},
+						options: {
+							scales: {
+								xAxes: [{
+									type: 'time',
+									time: {
+										unit: 'day'
+									}
+								}]
 							}
 						}
-					}
-				};
+					});
 
-				new Chart(ctx, config);
-				
-			}
+				} catch (error) {
+					console.error('Error fetching data:', error);
+					document.getElementById('profileInfo').innerHTML = "<p>Error loading profile information.</p>";
+					document.getElementById('commitHistory').innerHTML = "<p>Error loading commit history.</p>";
+				}
+			});
 		</script>
 		@components.Footer()
 	</html>

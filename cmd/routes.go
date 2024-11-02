@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -10,5 +12,15 @@ type Config struct {
 
 func (app *Config) Routes() {
 	//views
-	app.Router.GET("/", getUserHandler)
+	app.Router.GET("/", handleMainPage)
+
+	app.Router.GET("/health", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{
+			"status": "ok",
+		})
+	})
+
+	app.Router.NoRoute(func(ctx *gin.Context) {
+		ctx.Status(http.StatusNotFound)
+	})
 }
