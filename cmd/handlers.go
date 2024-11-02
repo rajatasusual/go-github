@@ -41,14 +41,12 @@ func getIndexHandler(ctx *gin.Context) {
 }
 
 func getUser(ctx *gin.Context, username string, force bool) {
-	user, err := service.FetchEntryFromXata(username)
+	user, err := service.FetchEntry(username)
 
 	if err != nil {
-		fmt.Println(err)
 		var err error
 		user, err = service.FetchGitHubProfile(username, force)
 
-		fmt.Println(err)
 		if err != nil {
 			if strings.Contains(err.Error(), "404") {
 				user = &views.GitHubUser{

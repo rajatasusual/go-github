@@ -1,3 +1,4 @@
 .env
 *_templ.go
 go-github
+app.db
